@@ -1,0 +1,7 @@
+# 本目录下两个 crate 都是独立 workspace，各自生成 target/。
+# 根 .gitignore 的 `/target` 锚定了仓库根，覆盖不到这里。
+target/
+
+# meta-bench 每次跑分的产物和它记的最后一次跑分。
+meta-bench/runs/
+meta-bench/.last_run

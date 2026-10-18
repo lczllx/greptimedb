@@ -1,0 +1,44 @@
+[package]
+name = "objstore-toy"
+version = "0.1.0"
+edition = "2021"
+# 有第二个 bin（etag_probe），所以要指明默认跑哪个，否则 `cargo run -- ping` 会报二义。
+default-run = "objstore-toy"
+
+# 独立 workspace：不并入 GreptimeDB 的 60+ crate workspace，避免影响主构建
+# （也不让本 crate 的依赖图拖累它）。空 [workspace] 表让本 crate 自成 workspace 根。
+# 同样的做法见 dev/opendal-cas-demo/Cargo.toml。
+[workspace]
+
+[dependencies]
+# ⚠️⚠️ 版本对齐：**光锁 facade 是不够的**
+#
+# 1. 写 `"0.59.2"` 是 caret 语义（^0.59.2），会解析到 0.59.3 ⇒ 必须写 `=0.59.2`。
+# 2. 但 `=0.59.2` 只钉住 **facade crate `opendal` 自己**。opendal 是拆成
+#    opendal-core / opendal-service-* / opendal-layer-* 等一堆子 crate 的，
+#    facade 对它们的依赖是 **caret** ⇒ 子 crate 会自己跑到 0.59.3。
+#    而**真正决定行为的东西恰恰在子 crate 里**（能力位在 opendal-core，
+#    S3 后端行为在 opendal-service-s3）。
+# 3. 仓库根 Cargo.lock 把这**全部 18 个 opendal-* crate 都钉在 0.59.2**。
+#
+# ⇒ 改完依赖（尤其是 `cargo update`）之后**必须核对全家桶**：
+#
+#     cargo tree --manifest-path dev/objstore-toy/Cargo.toml \
+#       | grep -oE 'opendal[a-z-]* v[0-9.]+' | sort -u
+#
+#   输出里**不允许出现 0.59.3**。若出现，逐个 `cargo update -p <crate> --precise 0.59.2`
+#   （注意顺序：得先把 opendal-http-transport-reqwest 降下来，
+#   opendal-core 才降得动 —— core 被 transport 挡着）。
+opendal = { version = "=0.59.2", features = ["services-s3"] }
+# `time` 是 S8 加的：分裂两步之间注入一段延迟，把「中间态窗口」从一次往返拉宽到可被采样
+# （见 src/scenarios/s8.rs 模块头「为什么要注入延迟」）。
+# `sync` 是 V6 加的：攒批器用 `mpsc` 收提交请求、`oneshot` 回执（`src/group_commit.rs`）。
+tokio = { version = "1", features = ["rt-multi-thread", "macros", "time", "sync"] }
+# 树节点存成 JSON —— 好处是能直接在 MinIO 里 `mc cat` 看对象内容，
+# 而「中间态长什么样」正是 S2/S3 要观察的东西，可读性值这两个依赖。
+# V3 加的：真 etcd 的客户端。版本与仓库 `src/common/meta` 保持一致（0.17），
+# 这样 toy 里对拍的 etcd 语义 == 真实现面对的那套语义。
+# 不开 tls 特征：对拍用的是本机明文 127.0.0.1:2379。
+etcd-client = "=0.17.0"
+serde = { version = "1", features = ["derive"] }
+serde_json = "1"

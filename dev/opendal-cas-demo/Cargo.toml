@@ -1,0 +1,16 @@
+[package]
+name = "opendal-cas-demo"
+version = "0.1.0"
+edition = "2021"
+# 两个 bin（src/main.rs 的顺序 6 步 + src/bin/etag_probe.rs 的 ETag 探针）⇒
+# 不指定 default-run 时 `cargo run` 会报「could not determine which binary to run」。
+default-run = "opendal-cas-demo"
+
+# 独立 workspace：本 demo 只是原型验证，不并入 GreptimeDB 的 60+ crate workspace，
+# 避免影响主构建。空 [workspace] 表让本 crate 自成 workspace 根。
+[workspace]
+
+[dependencies]
+# 只开 services-s3 这一个 feature（MinIO 是 S3 兼容协议）
+opendal = { version = "0.58", features = ["services-s3"] }
+tokio = { version = "1", features = ["rt-multi-thread", "macros"] }
