@@ -31,3 +31,4 @@ pub mod table;
 pub mod test_util;
 pub mod utils;
 pub mod write_dispatcher;
+pub mod write_queue;
